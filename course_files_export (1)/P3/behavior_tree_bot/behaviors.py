@@ -3,7 +3,11 @@ sys.path.insert(0, '../')
 from planet_wars import issue_order
 
 
-def attack_weakest_enemy_planet(state):
+'''def attack_weakest_enemy_planet(state):
+    # (1) If we currently have a fleet in flight, abort plan.
+    if len(state.my_fleets()) >= 1:
+        return False
+
     # (2) Find my strongest planet.
     strongest_planet = max(state.my_planets(), key=lambda t: t.num_ships, default=None)
 
@@ -19,6 +23,10 @@ def attack_weakest_enemy_planet(state):
 
 
 def spread_to_weakest_neutral_planet(state):
+    # (1) If we currently have a fleet in flight, just do nothing.
+    if len(state.my_fleets()) >= 1:
+        return False
+
     # (2) Find my strongest planet.
     strongest_planet = max(state.my_planets(), key=lambda p: p.num_ships, default=None)
 
@@ -30,42 +38,98 @@ def spread_to_weakest_neutral_planet(state):
         return False
     else:
         # (4) Send half the ships from my strongest planet to the weakest enemy planet.
-        return issue_order(state, strongest_planet.ID, weakest_planet.ID, strongest_planet.num_ships / 2)
+        return issue_order(state, strongest_planet.ID, weakest_planet.ID, strongest_planet.num_ships / 2)'''
 
-def attack_best_neutral_planet(state):
-    # list of owned planets, descending from number of ships
-    my_planets = iter(sorted(state.my_planets(), key=lambda p: p.num_ships, reverse=True))
-    # list of neutral planets, descending from growth rate
-    neutral_planets = iter(sorted(state.neutral_planets(), key=lambda p: p.growth_rate, reverse=True))
+def highest_growth(state): 
+    my_planets = iter(sorted(state.my_planets(), key=lambda p: p.num_ships))
 
-    if len(my_planets) == 0 or len(neutral_planets) == 0:
-        return(False)
-    # ships the most productive neutral planet has
-    target = neutral_planets[0]
-    target_strength = target.num_ships
-    # ships that have been sent to attack this planet
-    sent_strength = 0
+    enemy_planets = [planet for planet in state.enemy_planets()
+                    if not any(fleet.destination_planet == planet.ID for fleet in state.my_fleets())]
+    enemy_planets.sort(key=lambda p: p.num_ships)
 
-    available_ships = 0
-    for i in my_planets:
-        available_ships += my_planets[i].num_ships - 1
-    if available_ships < target_strength:
-        return(False)
+    target_planets = iter(enemy_planets)
 
-    index = 0
-    ships_to_send = 0
-    while sent_strength < target_strength:
-        if not index in range(len(my_planets)):
-            index = 0
-        
-        if(my_planets[index].num_ships / 2 > target_strength - sent_strength + 1):  # if half the current ship's planets is more than enough
-            ships_to_send = target_strength - sent_strength + 1                     # send the minimum required to take the planet
-        elif my_planets[index].num_ships == 1:                                      # do not have the ships required to take planet
-            return(False)                                                           # ideally should never run
-        else:                                                                       # else
-            ships_to_send = my_planets[index].num_ships / 2                         # send half the planet's strength
-        issue_order(state, my_planets[index].id, target.id, ships_to_send)
-        sent_strength += ships_to_send
+    try:
+        my_planet = next(my_planets)
+        target_planet = next(target_planets)
+        while True:
+            required_ships = target_planet.num_ships + \
+                                state.distance(my_planet.ID, target_planet.ID) * target_planet.growth_rate + 1
 
-        index += 1
-    return True
+            if my_planet.num_ships > required_ships:
+                issue_order(state, my_planet.ID, target_planet.ID, required_ships)
+                my_planet = next(my_planets)
+                target_planet = next(target_planets)
+            else:
+                my_planet = next(my_planets)
+
+    except StopIteration:
+        return
+
+def spread(state):
+    my_planets = iter(sorted(state.my_planets(), key=lambda p: p.num_ships))
+
+    neutral_planets = [planet for planet in state.neutral_planets()
+                      if not any(fleet.destination_planet == planet.ID for fleet in state.my_fleets())]
+    neutral_planets.sort(key=lambda p: p.num_ships)
+
+    target_planets = iter(neutral_planets)
+
+    try:
+        my_planet = next(my_planets)
+        target_planet = next(target_planets)
+        while True:
+            required_ships = target_planet.num_ships + 1
+
+            if my_planet.num_ships > required_ships:
+                issue_order(state, my_planet.ID, target_planet.ID, required_ships)
+                my_planet = next(my_planets)
+                target_planet = next(target_planets)
+            else:
+                my_planet = next(my_planets)
+
+    except StopIteration:
+        return
+
+
+
+def attack_enemy_planets(state):
+    # Find all enemy planets
+    my_planets = [planet for planet in state.my_planets()]
+    if not my_planets:
+        return
+
+    def strength(p):
+        return p.num_ships \
+               + sum(fleet.num_ships for fleet in state.my_fleets() if fleet.destination_planet == p.ID) \
+               - sum(fleet.num_ships for fleet in state.enemy_fleets() if fleet.destination_planet == p.ID)
+
+    avg = sum(strength(planet) for planet in my_planets) / len(my_planets)
+
+    weak_planets = [planet for planet in my_planets if strength(planet) < avg]
+    strong_planets = [planet for planet in my_planets if strength(planet) > avg]
+
+    if (not weak_planets) or (not strong_planets):
+        return
+
+    weak_planets = iter(sorted(weak_planets, key=strength))
+    strong_planets = iter(sorted(strong_planets, key=strength, reverse=True))
+
+    try:
+        weak_planet = next(weak_planets)
+        strong_planet = next(strong_planets)
+        while True:
+            need = int(avg - strength(weak_planet))
+            have = int(strength(strong_planet) - avg)
+
+            if have >= need > 0:
+                issue_order(state, strong_planet.ID, weak_planet.ID, need)
+                weak_planet = next(weak_planets)
+            elif have > 0:
+                issue_order(state, strong_planet.ID, weak_planet.ID, have)
+                strong_planet = next(strong_planets)
+            else:
+                strong_planet = next(strong_planets)
+
+    except StopIteration:
+        return

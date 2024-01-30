@@ -18,29 +18,30 @@ from behavior_tree_bot.bt_nodes import Selector, Sequence, Action, Check
 
 from planet_wars import PlanetWars, finish_turn
 
+def if_enemy_planets_available(state):
+    return bool(state.enemy_planets())
 
-# You have to improve this tree or create an entire new one that is capable
-# of winning against all the 5 opponent bots
+
 def setup_behavior_tree():
-
     # Top-down construction of behavior tree
     root = Selector(name='High Level Ordering of Strategies')
 
     offensive_plan = Sequence(name='Offensive Strategy')
     largest_fleet_check = Check(have_largest_fleet)
-    attack = Action(attack_weakest_enemy_planet)
-    offensive_plan.child_nodes = [largest_fleet_check, attack]
+    highest_growth_action = Action(highest_growth)
+    offensive_plan.child_nodes = [largest_fleet_check, highest_growth_action]
 
     spread_sequence = Sequence(name='Spread Strategy')
     neutral_planet_check = Check(if_neutral_planet_available)
-    spread_action = Action(spread_to_weakest_neutral_planet)
+    spread_action = Action(spread)
     spread_sequence.child_nodes = [neutral_planet_check, spread_action]
 
-    attack_best_neutral_planet_action = Action(attack_best_neutral_planet)
-    send_ships_strategy = Sequence(name='Send Ships Strategy')
-    send_ships_strategy.child_nodes = [attack_best_neutral_planet_action]
+    attack_enemy_sequence = Sequence(name='Attack Enemy Planets Strategy')
+    enemy_planet_check = Check(if_enemy_planets_available)
+    attack_enemy_action = Action(attack_enemy_planets)
+    attack_enemy_sequence.child_nodes = [enemy_planet_check, attack_enemy_action]
 
-    root.child_nodes = [offensive_plan, spread_sequence, send_ships_strategy]
+    root.child_nodes = [offensive_plan, spread_sequence, attack_enemy_sequence]
 
     logging.info('\n' + root.tree_to_string())
     return root
