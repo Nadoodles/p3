@@ -37,6 +37,9 @@ def attack_best_neutral_planet(state):
     my_planets = iter(sorted(state.my_planets(), key=lambda p: p.num_ships, reverse=True))
     # list of neutral planets, descending from growth rate
     neutral_planets = iter(sorted(state.neutral_planets(), key=lambda p: p.growth_rate, reverse=True))
+
+    if len(my_planets) == 0 or len(neutral_planets) == 0:
+        return(False)
     # ships the most productive neutral planet has
     target = neutral_planets[0]
     target_strength = target.num_ships

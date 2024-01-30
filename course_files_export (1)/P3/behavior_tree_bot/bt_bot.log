@@ -1562,5 +1562,5 @@ Traceback (most recent call last):
   File "C:\Users\Luis\Desktop\P3\p3\course_files_export (1)\P3\behavior_tree_bot\bt_nodes.py", line 89, in execute
     return self.action_function(state)
   File "C:\Users\Luis\Desktop\P3\p3\course_files_export (1)\P3\behavior_tree_bot\behaviors.py", line 41, in attack_best_neutral_planet
-    target = neutral_planets[0]
-TypeError: 'list_iterator' object is not subscriptable
+    if len(my_planets) == 0 or len(neutral_planets) == 0:
+TypeError: object of type 'list_iterator' has no len()
