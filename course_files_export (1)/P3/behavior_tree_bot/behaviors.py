@@ -35,7 +35,7 @@ def uniformSafeSpread(state) :
             if shipsAvailable > 1 :
                 issue_order(state, x, y, shipsAvailable / 2)
     
-    return(true)
+    return(True)
 
 
 
