@@ -35,13 +35,14 @@ def setup_behavior_tree():
 
     #build nodes
     panic.child_nodes = [panicCheckNode, aggressiveSpreadNode]
-    contested.child_nodes = [neutral_planet_check, uniformSpread]
+    contested.child_nodes = [neutralCheckNode, uniformSpread]
     defense.child_nodes = [undefendedCheck, defend]
     default.child_nodes = [uniformSpread]
 
     root.child_nodes = [panic, contested, defense, default]
 
     logging.info('\n' + root.tree_to_string())
+    logging.debug('\n weeee')
     return root
 
 

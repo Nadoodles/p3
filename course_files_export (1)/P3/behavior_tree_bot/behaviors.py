@@ -1,4 +1,4 @@
-import sys
+import logging, sys
 sys.path.insert(0, '../')
 from planet_wars import issue_order
 from collections import namedtuple
@@ -25,53 +25,59 @@ ATTACK_BUFFER = 5
 # =============================
 
 # all planets over a certain threshold send ships to all planets, sending more ships to more valuable planets
-def uniformSafeSpread(state) :
-    readyPlanets = musterPlanets(state)
-    targetPlanets = getAllPlanets(state)
+def uniformSafeSpread(state):
+    try:
+        readyPlanets = musterPlanets(state)
+        targetPlanets = getAllPlanets(state)
 
-    for x in readyPlanets :
-        for y in targetPlanets :
-            shipsAvailable = x.num_ships - (x.growth_rate * (THRESHOLD_FACTOR + 1))
-            if shipsAvailable > 1 :
-                issue_order(state, x, y, shipsAvailable / 2)
-    
-    return(True)
+        for x in readyPlanets:
+            for y in targetPlanets:
+                shipsAvailable = x.num_ships - (x.growth_rate * (THRESHOLD_FACTOR + 1))
+                if shipsAvailable > 1:
+                    issue_order(state, x, y, shipsAvailable / 2)
+        return True
+    except Exception as e:
+        logging.exception("Error in uniformSafeSpread: %s", str(e))
+        return False
 
 
 
 
 
 # send ships to the least defended planets, regardless of ships on owned planets
-def aggressiveSpread(state) :
-    myPlanets = state.my_planets()
-    neutralPlanets = state.neutral_planets()
-    enemyPlanets = state.enemy_planets()
-    targetPlanets = []
+def aggressiveSpread(state):
+    try:
+        myPlanets = state.my_planets()
+        neutralPlanets = state.neutral_planets()
+        enemyPlanets = state.enemy_planets()
+        targetPlanets = []
 
-    # populate the list of not-owned planets
-    for i in neutralPlanets :
-        targetPlanets.append[i]
-    for i in enemyPlanets : 
-        targetPlanets.append[i]
-    targetPlanets = sorted(targetPlanets, key=lambda p: p.num_ships, reverse=False)
+        for i in neutralPlanets:
+            targetPlanets.append(i)
+        for i in enemyPlanets:
+            targetPlanets.append(i)
+        targetPlanets = sorted(targetPlanets, key=lambda p: p.num_ships, reverse=False)
 
-    index1 = 0  # owned planets
-    index2 = 0  # target planets
-    while index1 < len(myPlanets) and index2 < len(targetPlanets) :
-        i1Planet = myPlanets[index1]
-        i2Planet = targetPlanets[index2]
-        strength = i2Planet.num_ships
+        index1 = 0  # owned planets
+        index2 = 0  # target planets
+        while index1 < len(myPlanets) and index2 < len(targetPlanets):
+            i1Planet = myPlanets[index1]
+            i2Planet = targetPlanets[index2]
+            strength = i2Planet.num_ships
 
-        if i2Planet.owner == 2 :
-            strength += i2Planet.growth_rate * state.distance(i1Planet, i2Planet)
+            if i2Planet.owner == 2:
+                strength += i2Planet.growth_rate * state.distance(i1Planet, i2Planet)
 
-        while index2 < len(targetPlanets) and i1Planet.num_ships > strength + ATTACK_BUFFER :
-            issue_order(state, i1Planet, i2Planet, strength + ATTACK_BUFFER)
-            index2 += 1
+            while index2 < len(targetPlanets) and i1Planet.num_ships > strength + ATTACK_BUFFER:
+                issue_order(state, i1Planet, i2Planet, strength + ATTACK_BUFFER)
+                index2 += 1
 
-        index += 1
+            index1 += 1
 
-    return(True)
+        return True
+    except Exception as e:
+        logging.exception("Error in aggressiveSpread: %s", str(e))
+        return False
 
 
 
