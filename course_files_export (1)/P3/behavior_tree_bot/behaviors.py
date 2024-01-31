@@ -13,28 +13,26 @@ from collections import namedtuple
 
 ValuedPlanet = namedtuple('PlanetRank', ['planet', 'value'])
 DISTANCE_FACTOR = 5
-THRESHOLD_FACTOR = 5
+THRESHOLD_FACTOR = 4
 ATTACK_BUFFER = 5
 
 
+# Actions
 
-
-
-# =============================
-# ========== Actions ==========
-# =============================
-
-# all planets over a certain threshold send ships to all planets, sending more ships to more valuable planets
 def uniformSafeSpread(state):
     try:
-        readyPlanets = [planet for planet in state.my_planets() if planet.num_ships > planet.growth_rate * (THRESHOLD_FACTOR + 1)]
+        readyPlanets = musterPlanets(state)
         targetPlanets = getAllPlanets(state)
 
-        for source in readyPlanets:
-            for target in targetPlanets:
-                shipsAvailable = source.num_ships - source.growth_rate * (THRESHOLD_FACTOR + 1)
-                if shipsAvailable > 1:
-                    issue_order(state, source.ID, target.ID, shipsAvailable / 2)
+        for x in readyPlanets:
+            shipsAvailable = x.num_ships - (x.growth_rate * (THRESHOLD_FACTOR + 1))
+            div = sum(range(1, len(targetPlanets) + 1))
+            
+            for y, targetPlanet in enumerate(targetPlanets):
+                if shipsAvailable > len(targetPlanets) - y:
+                    shipsToSend = shipsAvailable * ((len(targetPlanets) - y) / div)
+                    if (targetPlanet.owner == 0 and shipsToSend > targetPlanet.num_ships) or targetPlanet.owner == 2:
+                        issue_order(state, x.ID, targetPlanet.ID, shipsToSend)
         return True
     except Exception as e:
         logging.exception("Error in uniformSafeSpread: %s", str(e))
@@ -42,17 +40,26 @@ def uniformSafeSpread(state):
 
 def aggressiveSpread(state):
     try:
-        myPlanets = sorted(state.my_planets(), key=lambda p: p.num_ships, reverse=True)
-        targetPlanets = sorted(state.not_my_planets(), key=lambda p: p.num_ships)
+        myPlanets = state.my_planets()
+        targetPlanets = sorted(state.not_my_planets(), key=lambda p: (p.num_ships, -p.growth_rate, state.distance(myPlanets[0].ID, p.ID)))
 
-        for source in myPlanets:
-            for target in targetPlanets:
-                strength = target.num_ships
-                if target.owner == 2:
-                    strength += target.growth_rate * state.distance(source.ID, target.ID)
+        index1 = 0  # owned planets
+        index2 = 0  # target planets
+        while index1 < len(myPlanets) and index2 < len(targetPlanets):
+            strength = targetPlanets[index2].num_ships - shipsGoingTo(state, targetPlanets[index2])
 
-                if source.num_ships > strength + ATTACK_BUFFER:
-                    issue_order(state, source.ID, target.ID, strength + ATTACK_BUFFER)
+            if targetPlanets[index2].owner == 2:
+                strength += targetPlanets[index2].growth_rate * state.distance(myPlanets[index1].ID, targetPlanets[index2].ID)
+
+            while index2 < len(targetPlanets) and myPlanets[index1].num_ships > strength + ATTACK_BUFFER and strength > 0:
+                strength = targetPlanets[index2].num_ships - shipsGoingTo(state, targetPlanets[index2])
+                if targetPlanets[index2].owner == 2:
+                    strength += targetPlanets[index2].growth_rate * state.distance(myPlanets[index1].ID, targetPlanets[index2].ID)
+
+                issue_order(state, myPlanets[index1].ID, targetPlanets[index2].ID, strength + ATTACK_BUFFER)
+                index2 += 1
+
+            index1 += 1
 
         return True
     except Exception as e:
@@ -60,103 +67,60 @@ def aggressiveSpread(state):
         return False
 
 def reinforce(state):
-    try:
-        readyPlanets = [planet for planet in state.my_planets() if planet.num_ships > planet.growth_rate * (THRESHOLD_FACTOR + 1)]
-        targetPlanets = findUnderdefended(state)
+    readyPlanets = musterPlanets(state)
+    readyNumbers = musterNumbers(state)
+    targetPlanets = findUnderdefended(state)
+    index1 = 0
+    index2 = 0
+    ordersSent = 0
 
-        for source in readyPlanets:
-            for target in targetPlanets:
-                shipsNeeded = target.growth_rate * THRESHOLD_FACTOR - target.num_ships
-                if shipsNeeded > 0:
-                    shipsSent = min(source.num_ships - source.growth_rate * (THRESHOLD_FACTOR + 1), shipsNeeded)
-                    issue_order(state, source.ID, target.ID, shipsSent)
+    while index1 < len(readyPlanets) and index2 < len(targetPlanets) and readyNumbers > 0:
+        i1Planet = readyPlanets[index1]
+        i2Planet = targetPlanets[index2]
+        i1PNumber = i1Planet.num_ships - i1Planet.growth_rate * (THRESHOLD_FACTOR + 1)
+        i2PNumber = (i2Planet.growth_rate * THRESHOLD_FACTOR) - i2Planet.num_ships
 
-        return True
-    except Exception as e:
-        logging.exception("Error in reinforce: %s", str(e))
-        return False
+        if shipsGoingTo(state, i2Planet.ID) + i2Planet.num_ships >= i2Planet.growth_rate * THRESHOLD_FACTOR:
+            index2 += 1
+        else:
+            if i1Planet.num_ships <= i1Planet.growth_rate * (THRESHOLD_FACTOR + 1):
+                index1 += 1
+            else:
+                ships_to_send = min(i1PNumber, i2PNumber)
+                issue_order(state, i1Planet.ID, i2Planet.ID, ships_to_send)
+                readyNumbers -= ships_to_send
+                index2 += 1
+                ordersSent += 1
 
+    return ordersSent > 0
 
+# Helper Functions
 
-
-
-# ======================================
-# ========== Helper Functions ==========
-# ======================================
-
-# returns a list of all player planets that are underdefended, defined as growth_rate * threshold_factor
-def findUnderdefended(state) :
-    planets = []
+def findUnderdefended(state):
     allPlanets = sorted(state.my_planets(), key=lambda p: p.growth_rate, reverse=True)
+    return [planet for planet in allPlanets if planet.num_ships < planet.growth_rate * THRESHOLD_FACTOR]
 
-    for i in allPlanets :
-        if i.num_ships < i.growth_rate * THRESHOLD_FACTOR :
-            planets.append(i)
-
-    return(planets)
-
-
-
-
-
-# returns a list of all non-player planets, sorted by rank, which is growth_rate / num_ships
-def getAllPlanets(state) :
+def getAllPlanets(state):
     planets = []
     valuedPlanets = []
-    allNeutral = state.neutral_planets()
-    allEnemy = state.enemy_planets()
 
-    for i in allNeutral : 
+    for i in state.neutral_planets():
         valuedPlanets.append(ValuedPlanet(i, i.growth_rate / i.num_ships))
-    for j in allEnemy : 
+    for j in state.enemy_planets():
         valuedPlanets.append(ValuedPlanet(j, j.growth_rate / (j.num_ships + (j.growth_rate * DISTANCE_FACTOR))))
 
     valuedPlanets = sorted(valuedPlanets, key=lambda p: p.value, reverse=True)
-    for k in valuedPlanets :
-        planets.append(k.planet)
+    planets = [valued_planet.planet for valued_planet in valuedPlanets]
 
-    return(planets)
+    return planets
 
-
-
-
-
-# returns the amount of ships available, based on growth rate * threshold factor + 1
-def musterNumbers(state) :
+def musterNumbers(state):
     planets = musterPlanets(state)
-    ships = 0
+    return sum(i.num_ships - (i.growth_rate * (THRESHOLD_FACTOR + 1)) for i in planets)
 
-    for i in planets :
-        ships += i.num_ships - (i.growth_rate * (THRESHOLD_FACTOR + 1))
+def musterPlanets(state):
+    return [planet for planet in state.my_planets() if planet.num_ships >= planet.growth_rate * (THRESHOLD_FACTOR + 1)]
 
-    return(ships)
-
-
-
-
-
-# returns the planets with excess ships
-def musterPlanets(state) :
-    planets = []
-    allPlanets = state.my_planets()
-
-    for i in allPlanets :
-        if i.num_ships >= i.growth_rate * (THRESHOLD_FACTOR + 1) :
-            planets.append(i)
-
-    return(planets)
-
-
-
-
-
-# returns the number of ships going to a given planet
-def shipsGoingTo(state, planet) :
+def shipsGoingTo(state, planet):
     fleets = state.my_fleets()
-    ships = 0
-
-    for i in fleets :
-        if i.destination_planet == planet :
-            ships += i.num_ships
-
-    return(ships)
+    return sum(fleet.num_ships for fleet in fleets if fleet.destination_planet == planet)
