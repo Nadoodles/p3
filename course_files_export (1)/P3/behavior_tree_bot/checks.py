@@ -9,9 +9,9 @@ import logging
 # ===============================
 
 PANIC_PLANET_THRESHOLD = 5  # if we own less than this amount of planets then be aggressive
-PANIC_PLANET_FACTOR = 4     # if we own less than total planets/this amount of planets then be aggressive
-NEUTRAL_PLANET_CHECK = 2    # ignore this amount of neutral planets when forgoing defense
-UNDERDEFENDED_THRESHOLD = 1 # if the amount of "underdefended" planets is <= this number then ignore them
+PANIC_PLANET_FACTOR = 3     # if we own less than total planets/this amount of planets then be aggressive
+NEUTRAL_PLANET_CHECK = 3    # ignore this amount of neutral planets when forgoing defense
+UNDERDEFENDED_THRESHOLD = 2 # if the amount of "underdefended" planets is <= this number then ignore them
 THRESHOLD_FACTOR = 5        # THIS SHOULD BE THE SAME AS THE SAME CONST IN behaviors.py
 
 
@@ -53,8 +53,27 @@ def underdefendedCheck(state) :
     allPlanets = sorted(state.my_planets(), key=lambda p: p.growth_rate, reverse=True)
 
     for i in allPlanets :
-        if i.num_ships < i.growth_rate * THRESHOLD_FACTOR :
+        if i.num_ships + shipsGoingTo(state, i) < i.growth_rate * THRESHOLD_FACTOR :
             planets.append(i)
 
     logging.debug('\n undefended check')
     return len(planets) <= UNDERDEFENDED_THRESHOLD
+
+
+
+
+
+# ======================================
+# ========== Helper Functions ==========
+# ======================================
+
+# same as the one in behaviors.py
+def shipsGoingTo(state, planet) :
+    fleets = state.my_fleets()
+    ships = 0
+
+    for i in fleets :
+        if i.destination_planet == planet :
+            ships += i.num_ships
+
+    return(ships)

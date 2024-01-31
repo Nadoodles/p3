@@ -34,7 +34,7 @@ def uniformSafeSpread(state):
             for y in targetPlanets:
                 shipsAvailable = x.num_ships - (x.growth_rate * (THRESHOLD_FACTOR + 1))
                 if shipsAvailable > 1:
-                    issue_order(state, x, y, shipsAvailable / 2)
+                    issue_order(state, x.ID, y.ID, shipsAvailable / 2)
         return True
     except Exception as e:
         logging.exception("Error in uniformSafeSpread: %s", str(e))
@@ -48,29 +48,23 @@ def uniformSafeSpread(state):
 def aggressiveSpread(state):
     try:
         myPlanets = state.my_planets()
-        neutralPlanets = state.neutral_planets()
-        enemyPlanets = state.enemy_planets()
-        targetPlanets = []
-
-        for i in neutralPlanets:
-            targetPlanets.append(i)
-        for i in enemyPlanets:
-            targetPlanets.append(i)
-        targetPlanets = sorted(targetPlanets, key=lambda p: p.num_ships, reverse=False)
+        targetPlanets = sorted(state.not_my_planets(), key=lambda p: p.num_ships, reverse=False)
 
         index1 = 0  # owned planets
         index2 = 0  # target planets
         while index1 < len(myPlanets) and index2 < len(targetPlanets):
-            i1Planet = myPlanets[index1]
-            i2Planet = targetPlanets[index2]
-            strength = i2Planet.num_ships
+            strength = targetPlanets[index2].num_ships
 
-            if i2Planet.owner == 2:
-                strength += i2Planet.growth_rate * state.distance(i1Planet, i2Planet)
+            if targetPlanets[index2].owner == 2:
+                strength += targetPlanets[index2].growth_rate * state.distance(myPlanets[index1].ID, targetPlanets[index2].ID)
 
-            while index2 < len(targetPlanets) and i1Planet.num_ships > strength + ATTACK_BUFFER:
-                issue_order(state, i1Planet, i2Planet, strength + ATTACK_BUFFER)
+            while index2 < len(targetPlanets) and myPlanets[index1].num_ships > strength + ATTACK_BUFFER:
+                issue_order(state, myPlanets[index1].ID, targetPlanets[index2].ID, strength + ATTACK_BUFFER)
                 index2 += 1
+
+                strength = targetPlanets[index2].num_ships
+                if targetPlanets[index2].owner == 2:
+                    strength += targetPlanets[index2].growth_rate * state.distance(myPlanets[index1].ID, targetPlanets[index2].ID)
 
             index1 += 1
 
@@ -107,10 +101,10 @@ def reinforce(state) :
                 index1 += 1                 # planet doesnt have enough ships to send anything
             else :
                 if i1PNumber < i2PNumber :  # planet doesnt have enough to reinforce planet fully
-                    issue_order(state, i1Planet, i2Planet, i1PNumber)
+                    issue_order(state, i1Planet.ID, i2Planet.ID, i1PNumber)
                     readyNumbers -= i1PNumber
                 else :                      # planet sends minimum ships to defend planet
-                    issue_order(state, i1Planet, i2Planet, i2PNumber)
+                    issue_order(state, i1Planet.ID, i2Planet.ID, i2PNumber)
                     readyNumbers -= i2PNumber
                     index2 += 1
 
@@ -143,8 +137,8 @@ def findUnderdefended(state) :
 def getAllPlanets(state) :
     planets = []
     valuedPlanets = []
-    allNeutral = state.neutral_planets
-    allEnemy = state.enemy_planets
+    allNeutral = state.neutral_planets()
+    allEnemy = state.enemy_planets()
 
     for i in allNeutral : 
         valuedPlanets.append(ValuedPlanet(i, i.growth_rate / i.num_ships))
