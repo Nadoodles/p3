@@ -42,7 +42,6 @@ def setup_behavior_tree():
     root.child_nodes = [panic, contested, defense, default]
 
     logging.info('\n' + root.tree_to_string())
-    logging.debug('\n weeee')
     return root
 
 

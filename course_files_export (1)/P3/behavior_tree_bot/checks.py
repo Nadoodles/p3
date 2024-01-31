@@ -41,7 +41,7 @@ def panicCheck(state) :
 # are there not enough neutral planets to care about them
 def neutralCheck(state) :
     logging.debug('\n neutral Check')
-    return len(state.neutral_planets()) <= NEUTRAL_PLANET_CHECK
+    return len(state.neutral_planets()) >= NEUTRAL_PLANET_CHECK
 
 
 

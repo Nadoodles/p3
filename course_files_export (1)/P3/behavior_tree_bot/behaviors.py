@@ -31,10 +31,10 @@ def uniformSafeSpread(state):
         targetPlanets = getAllPlanets(state)
 
         for x in readyPlanets:
-            for y in targetPlanets:
+            for y in range(len(targetPlanets)) :
                 shipsAvailable = x.num_ships - (x.growth_rate * (THRESHOLD_FACTOR + 1))
-                if shipsAvailable > 1:
-                    issue_order(state, x.ID, y.ID, shipsAvailable / 2)
+                if shipsAvailable > len(targetPlanets) - y:
+                    issue_order(state, x.ID, targetPlanets[y].ID, len(targetPlanets) - y)
         return True
     except Exception as e:
         logging.exception("Error in uniformSafeSpread: %s", str(e))
@@ -53,10 +53,10 @@ def aggressiveSpread(state):
         index1 = 0  # owned planets
         index2 = 0  # target planets
         while index1 < len(myPlanets) and index2 < len(targetPlanets):
-            strength = targetPlanets[index2].num_ships
+            strength = targetPlanets[index2].num_ships - shipsGoingTo(state, targetPlanets[index2])
 
             if targetPlanets[index2].owner == 2:
-                strength += targetPlanets[index2].growth_rate * state.distance(myPlanets[index1].ID, targetPlanets[index2].ID)
+                strength += targetPlanets[index2].growth_rate * state.distance(myPlanets[index1].ID, targetPlanets[index2].ID) - shipsGoingTo(state, targetPlanets[index2])
 
             while index2 < len(targetPlanets) and myPlanets[index1].num_ships > strength + ATTACK_BUFFER:
                 issue_order(state, myPlanets[index1].ID, targetPlanets[index2].ID, strength + ATTACK_BUFFER)
@@ -87,6 +87,7 @@ def reinforce(state) :
     index2 = 0  # targetPlanets
     i1Planet = None
     i2Planet = None
+    ordersSent = 0
 
     while index1 < len(readyPlanets) and index2 < len(targetPlanets) and readyNumbers > 0 :
         i1Planet = readyPlanets[index1]
@@ -107,8 +108,9 @@ def reinforce(state) :
                     issue_order(state, i1Planet.ID, i2Planet.ID, i2PNumber)
                     readyNumbers -= i2PNumber
                     index2 += 1
+                ordersSent += 1
 
-    return(True)
+    return(ordersSent > 0)
 
 
 
