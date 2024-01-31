@@ -9,10 +9,10 @@ import logging
 # ===============================
 
 PANIC_PLANET_THRESHOLD = 5  # if we own less than this amount of planets then be aggressive
-PANIC_PLANET_FACTOR = 3     # if we own less than total planets/this amount of planets then be aggressive
-NEUTRAL_PLANET_CHECK = 3    # ignore this amount of neutral planets when forgoing defense
+PANIC_PLANET_FACTOR = 4     # if we own less than total planets/this amount of planets then be aggressive
+NEUTRAL_PLANET_CHECK = 0    # ignore this amount of neutral planets when forgoing defense
 UNDERDEFENDED_THRESHOLD = 2 # if the amount of "underdefended" planets is <= this number then ignore them
-THRESHOLD_FACTOR = 5        # THIS SHOULD BE THE SAME AS THE SAME CONST IN behaviors.py
+THRESHOLD_FACTOR = 4        # THIS SHOULD BE THE SAME AS THE SAME CONST IN behaviors.py
 
 
 

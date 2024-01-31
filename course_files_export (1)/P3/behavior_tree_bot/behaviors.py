@@ -13,7 +13,7 @@ from collections import namedtuple
 
 ValuedPlanet = namedtuple('PlanetRank', ['planet', 'value'])
 DISTANCE_FACTOR = 5
-THRESHOLD_FACTOR = 5
+THRESHOLD_FACTOR = 4
 ATTACK_BUFFER = 5
 
 
@@ -31,10 +31,15 @@ def uniformSafeSpread(state):
         targetPlanets = getAllPlanets(state)
 
         for x in readyPlanets:
+            shipsAvailable = x.num_ships - (x.growth_rate * (THRESHOLD_FACTOR + 1))
             for y in range(len(targetPlanets)) :
-                shipsAvailable = x.num_ships - (x.growth_rate * (THRESHOLD_FACTOR + 1))
                 if shipsAvailable > len(targetPlanets) - y:
-                    issue_order(state, x.ID, targetPlanets[y].ID, len(targetPlanets) - y)
+                    div = 0
+                    for i in range(len(targetPlanets) + 1) :
+                        div += i
+                    shipsToSend = shipsAvailable * ((len(targetPlanets) - y) / div)
+                    if (targetPlanets[y].owner == 0 and shipsToSend > targetPlanets[y].num_ships) or targetPlanets[y].owner == 2 : 
+                        issue_order(state, x.ID, targetPlanets[y].ID, shipsToSend)
         return True
     except Exception as e:
         logging.exception("Error in uniformSafeSpread: %s", str(e))
@@ -56,15 +61,15 @@ def aggressiveSpread(state):
             strength = targetPlanets[index2].num_ships - shipsGoingTo(state, targetPlanets[index2])
 
             if targetPlanets[index2].owner == 2:
-                strength += targetPlanets[index2].growth_rate * state.distance(myPlanets[index1].ID, targetPlanets[index2].ID) - shipsGoingTo(state, targetPlanets[index2])
+                strength += targetPlanets[index2].growth_rate * state.distance(myPlanets[index1].ID, targetPlanets[index2].ID)
 
-            while index2 < len(targetPlanets) and myPlanets[index1].num_ships > strength + ATTACK_BUFFER:
-                issue_order(state, myPlanets[index1].ID, targetPlanets[index2].ID, strength + ATTACK_BUFFER)
-                index2 += 1
-
-                strength = targetPlanets[index2].num_ships
+            while index2 < len(targetPlanets) and myPlanets[index1].num_ships > strength + ATTACK_BUFFER and strength > 0:
+                strength = targetPlanets[index2].num_ships - shipsGoingTo(state, targetPlanets[index2])
                 if targetPlanets[index2].owner == 2:
                     strength += targetPlanets[index2].growth_rate * state.distance(myPlanets[index1].ID, targetPlanets[index2].ID)
+
+                issue_order(state, myPlanets[index1].ID, targetPlanets[index2].ID, strength + ATTACK_BUFFER)
+                index2 += 1
 
             index1 += 1
 
