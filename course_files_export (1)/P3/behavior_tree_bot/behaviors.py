@@ -32,11 +32,13 @@ def uniformSafeSpread(state):
 
         for x in readyPlanets:
             shipsAvailable = x.num_ships - (x.growth_rate * (THRESHOLD_FACTOR + 1))
+            div = 0
+            for i in range(len(targetPlanets) + 1) :
+                div += i
+
             for y in range(len(targetPlanets)) :
                 if shipsAvailable > len(targetPlanets) - y:
-                    div = 0
-                    for i in range(len(targetPlanets) + 1) :
-                        div += i
+                    
                     shipsToSend = shipsAvailable * ((len(targetPlanets) - y) / div)
                     if (targetPlanets[y].owner == 0 and shipsToSend > targetPlanets[y].num_ships) or targetPlanets[y].owner == 2 : 
                         issue_order(state, x.ID, targetPlanets[y].ID, shipsToSend)
